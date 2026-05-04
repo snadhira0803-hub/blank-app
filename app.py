@@ -2,52 +2,88 @@ import streamlit as st
 import plotly.graph_objects as go
 import numpy as np
 
-# Konfigurasi halaman
-st.set_page_config(page_title="EconGraph Indo", layout="wide")
+# 1. Setup Tampilan biar cakep
+st.set_page_config(page_title="Simulasi Grafik Ekonomi", layout="wide")
 
-st.title("💹 Simulator Ekonomi: Rupiah & Pasar")
-st.write("Navigasi di menu samping untuk ganti topik!")
+# Custom CSS untuk mempercantik UI
+st.markdown("""
+    <style>
+    .main { background-color: #f8f9fa; }
+    .stSlider { padding-top: 1rem; }
+    </style>
+    """, unsafe_allow_index=True)
 
-# --- MENU NAVIGASI ---
-topik = st.sidebar.selectbox("Pilih Topik:", ["Permintaan & Penawaran", "Simulator Nilai Tukar (Kurs)"])
+st.title("🎨 EconGraph Indo: Visual Simulator")
+st.write("---")
 
-# --- MODUL 1: SUPPLY DEMAND ---
-if topik == "Permintaan & Penawaran":
-    st.header("📊 Pasar Barang Lokal")
-    with st.sidebar:
+# 2. Sidebar dengan Emoji
+with st.sidebar:
+    st.header("🎮 Kontrol Simulator")
+    topik = st.radio("Pilih Materi:", ["📦 Pasar Barang", "💵 Kurs Rupiah"])
+    st.write("---")
+    
+    if topik == "Pasar Barang":
         st.subheader("Faktor Penggerak")
-        shift_d = st.slider("Minat Konsumen", -50, 50, 0)
-        shift_s = st.slider("Biaya Produksi (BBM/Bahan Baku)", -50, 50, 0)
+        shift_d = st.slider("Minat Pembeli (Demand) 😍", -40, 40, 0)
+        shift_s = st.slider("Kemudahan Produksi (Supply) 🏭", -40, 40, 0)
+    else:
+        st.subheader("Kondisi Global")
+        ekspor = st.slider("Ekspor / Investasi Masuk 📈", -40, 40, 0)
+        impor = st.slider("Belanja Luar Negeri / Impor 📉", -40, 40, 0)
 
-    q = np.linspace(1, 100, 100)
-    d = (100 + shift_d) - q
-    s = (20 + shift_s) + q
+# 3. Logika Grafik Smooth (Menggunakan fungsi non-linear agar melengkung cantik)
+q_smooth = np.linspace(1, 100, 200) # 200 titik supaya mulus
 
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=q, y=d, name="Demand", line=dict(color='blue')))
-    fig.add_trace(go.Scatter(x=q, y=s, name="Supply", line=dict(color='red')))
-    fig.update_layout(xaxis_title="Jumlah Barang", yaxis_title="Harga (Rp)", template="simple_white")
-    st.plotly_chart(fig, use_container_width=True)
-
-# --- MODUL 2: EXCHANGE RATE (Request Murid) ---
+if topik == "Pasar Barang":
+    # Membuat kurva hiperbola agar terlihat estetik seperti buku teks
+    d_smooth = (2000 / (q_smooth + 10)) + 20 + shift_d
+    s_smooth = (0.5 * q_smooth**1.2) + 10 - shift_s
+    
+    # Ilustrasi Barang (Emoji)
+    jumlah_emoji = int((50 + shift_d - shift_s) / 10)
+    st.subheader(f"Visualisasi Barang di Pasar: {'📦' * max(1, jumlah_emoji)}")
+    
+    color_d, color_s, y_label = "royalblue", "crimson", "Harga (Rp)"
+    y_data_d, y_data_s = d_smooth, s_smooth
 else:
-    st.header("💱 Simulator Kurs Rupiah (IDR/USD)")
-    st.info("Sumbu Y = Harga USD dalam Rupiah. Sumbu X = Jumlah USD di pasar.")
+    # Model Kurs Rupiah
+    y_data_d = (15500 + (impor * 20)) - (q_smooth * 15)
+    y_data_s = (14000 - (ekspor * 20)) + (q_smooth * 15)
     
-    with st.sidebar:
-        st.subheader("Kebijakan & Situasi")
-        ekspor = st.slider("Ekspor Indonesia Naik (Permintaan IDR ↑)", 0, 50, 0)
-        impor = st.slider("Impor Naik (Permintaan USD ↑ / Penawaran IDR)", 0, 50, 0)
-
-    q_usd = np.linspace(1, 100, 100)
-    # Model sederhana Kurs
-    demand_usd = (15000 + (impor * 100)) - (q_usd * 10)
-    supply_usd = (13000 - (ekspor * 100)) + (q_usd * 10)
-
-    fig_kurs = go.Figure()
-    fig_kurs.add_trace(go.Scatter(x=q_usd, y=demand_usd, name="Permintaan USD", line=dict(color='green')))
-    fig_kurs.add_trace(go.Scatter(x=q_usd, y=supply_usd, name="Penawaran USD", line=dict(color='orange')))
-    fig_kurs.update_layout(xaxis_title="Kuantitas USD", yaxis_title="Kurs (IDR per 1 USD)", template="simple_white")
-    st.plotly_chart(fig_kurs, use_container_width=True)
+    uang_emoji = int((50 + ekspor - impor) / 10)
+    st.subheader(f"Cadangan Devisa: {'💰' * max(1, uang_emoji)}")
     
-    st.write("💡 **Tips:** Kalau Ekspor naik, penawaran USD di dalam negeri melimpah, Rupiah jadi 'Mahal' (Menguat).")
+    color_d, color_s, y_label = "seagreen", "darkorange", "Kurs (IDR/USD)"
+
+# 4. Gambar Grafik Pakai Plotly
+fig = go.Figure()
+
+# Garis Demand
+fig.add_trace(go.Scatter(x=q_smooth, y=y_data_d, name="Demand", 
+                         line=dict(color=color_d, width=5, shape='spline'))) # Shape spline bikin smooth!
+
+# Garis Supply
+fig.add_trace(go.Scatter(x=q_smooth, y=y_data_s, name="Supply", 
+                         line=dict(color=color_s, width=5, shape='spline')))
+
+# Percantik Layout
+fig.update_layout(
+    hovermode="x unified",
+    xaxis=dict(title="Kuantitas (Q)", showgrid=True, zeroline=True),
+    yaxis=dict(title=y_label, showgrid=True, zeroline=True),
+    margin=dict(l=20, r=20, t=20, b=20),
+    height=500,
+    template="none"
+)
+
+st.plotly_chart(fig, use_container_width=True)
+
+# 5. Dashboard Info di Bawah
+col1, col2 = st.columns(2)
+with col1:
+    st.info("**Tips untuk Murid:** Perhatikan titik potong kedua garis. Itulah harga keseimbangan pasar saat ini!")
+with col2:
+    if topik == "Pasar Barang":
+        st.warning("Jika garis merah naik, artinya produksi makin sulit/mahal.")
+    else:
+        st.success("Jika garis hijau geser ke kanan, artinya banyak orang luar negeri butuh Rupiah!")
