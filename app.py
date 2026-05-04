@@ -2,9 +2,10 @@ import streamlit as st
 import plotly.graph_objects as go
 import numpy as np
 
-# 1. Setup Tampilan
+# 1. Setup Halaman (Harus di baris paling atas setelah import)
 st.set_page_config(page_title="EconGraph Indo Pro", layout="wide")
 
+# Perbaikan Error Utama: Pastikan menggunakan unsafe_allow_html=True
 st.markdown("""
     <style>
     .main { background-color: #f8f9fa; }
@@ -21,10 +22,7 @@ with st.sidebar:
     topik = st.radio("Pilih Materi:", ["📦 Pasar Barang", "💱 Kurs Rupiah", "📉 Biaya & Keuntungan"])
     st.write("---")
 
-# --- MODUL 1 & 2 (Supply Demand & Kurs) ---
-# (Logikanya tetap sama, namun kita tambahkan durasi transisi di bagian update_layout nanti)
-
-# --- MODUL 3: COST, REVENUE, PROFIT (Fitur Baru) ---
+# --- MODUL 3: COST, REVENUE, PROFIT ---
 if topik == "📉 Biaya & Keuntungan":
     st.header("📊 Analisis Biaya Produksi & Laba")
     
@@ -36,68 +34,61 @@ if topik == "📉 Biaya & Keuntungan":
 
     q_cost = np.linspace(1, 20, 100)
     
-    # RUMUS:
-    total_cost = fixed_cost + (variable_cost_rate * q_cost) + (0.5 * q_smooth[:100]**2) # Tambahan parabola agar kurva AC berbentuk U
+    # Perhitungan Biaya
+    total_cost = fixed_cost + (variable_cost_rate * q_cost) + (0.5 * q_cost**2)
     total_revenue = harga_jual * q_cost
     profit = total_revenue - total_cost
-    
-    # Marginal & Average
     average_cost = total_cost / q_cost
-    marginal_cost = variable_cost_rate + q_cost # Turunan sederhana
+    marginal_cost = variable_cost_rate + q_cost
     
-    sub_materi = st.tabs(["Total Curves", "Average & Marginal"])
+    tab1, tab2 = st.tabs(["Total Curves", "Average & Marginal"])
     
-    with sub_materi[0]:
+    with tab1:
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=q_cost, y=total_cost, name="Total Cost (TC)", line=dict(color='red', width=4, shape='spline')))
         fig.add_trace(go.Scatter(x=q_cost, y=total_revenue, name="Total Revenue (TR)", line=dict(color='green', width=4, shape='spline')))
         fig.add_trace(go.Scatter(x=q_cost, y=profit, name="Profit/Loss", fill='tozeroy', line=dict(color='gold', width=2)))
-        fig.update_layout(xaxis_title="Kuantitas Produksi", yaxis_title="Nilai (Rp)", hovermode="x unified")
+        fig.update_layout(transition={'duration': 500}, hovermode="x unified", xaxis_title="Q", yaxis_title="Rp")
         st.plotly_chart(fig, use_container_width=True)
 
-    with sub_materi[1]:
+    with tab2:
         fig2 = go.Figure()
         fig2.add_trace(go.Scatter(x=q_cost, y=average_cost, name="Average Cost (AC)", line=dict(color='orange', width=4, shape='spline')))
         fig2.add_trace(go.Scatter(x=q_cost, y=marginal_cost, name="Marginal Cost (MC)", line=dict(color='purple', width=4, shape='spline')))
         fig2.add_trace(go.Scatter(x=q_cost, y=[harga_jual]*100, name="Price (MR)", line=dict(dash='dash', color='grey')))
-        fig2.update_layout(xaxis_title="Kuantitas Produksi", yaxis_title="Biaya per Unit", hovermode="x unified")
+        fig2.update_layout(transition={'duration': 500}, hovermode="x unified", xaxis_title="Q", yaxis_title="Rp per Unit")
         st.plotly_chart(fig2, use_container_width=True)
 
-# --- BAGIAN SUPPLY DEMAND & KURS (Disederhanakan untuk efisiensi) ---
-elif topik == "📦 Pasar Barang" or topik == "💱 Kurs Rupiah":
-    # (Gunakan logika yang sama seperti sebelumnya untuk menghitung y_data_d dan y_data_s)
-    # [Tambahkan kode perhitungan dari pesan sebelumnya di sini]
+# --- MODUL 1 & 2: SUPPLY DEMAND & KURS ---
+else:
+    q_smooth = np.linspace(1, 100, 200)
     
-    # Kuncinya ada di sini:
+    if topik == "📦 Pasar Barang":
+        with st.sidebar:
+            shift_d = st.slider("Minat Pembeli (Demand) 😍", -40, 40, 0)
+            shift_s = st.slider("Kemudahan Produksi (Supply) 🏭", -40, 40, 0)
+        y_d = (2000 / (q_smooth + 10)) + 20 + shift_d
+        y_s = (0.5 * q_smooth**1.2) + 10 - shift_s
+        title, color_d, color_s, y_label = "Pasar Barang", "royalblue", "crimson", "Harga (Rp)"
+    else:
+        with st.sidebar:
+            ekspor = st.slider("Ekspor / Investasi Masuk 📈", -40, 40, 0)
+            impor = st.slider("Belanja Luar Negeri / Impor 📉", -40, 40, 0)
+        y_d = (15500 + (impor * 20)) - (q_smooth * 15)
+        y_s = (14000 - (ekspor * 20)) + (q_smooth * 15)
+        title, color_d, color_s, y_label = "Kurs Rupiah", "seagreen", "darkorange", "Kurs (IDR/USD)"
+
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=q_smooth, y=y_data_d, name="Demand", line=dict(color=color_d, width=5, shape='spline')))
-    fig.add_trace(go.Scatter(x=q_smooth, y=y_data_s, name="Supply", line=dict(color=color_s, width=5, shape='spline')))
-    
-    # Menambahkan Animasi Transisi
-    fig.update_layout(
-        transition = {'duration': 500, 'easing': 'cubic-in-out'},
-        hovermode="x unified",
-        template="none"
-    )
+    fig.add_trace(go.Scatter(x=q_smooth, y=y_d, name="Demand", line=dict(color=color_d, width=5, shape='spline')))
+    fig.add_trace(go.Scatter(x=q_smooth, y=y_s, name="Supply", line=dict(color=color_s, width=5, shape='spline')))
+    fig.update_layout(transition={'duration': 500}, hovermode="x unified", xaxis_title="Q", yaxis_title=y_label)
     st.plotly_chart(fig, use_container_width=True)
 
-# --- 3. MINI SUMMARY OF FORMULAS FOR STUDENTS ---
+# --- RANGKUMAN RUMUS ---
 st.write("---")
-st.subheader("📚 Rangkuman Rumus untuk Murid")
-col_a, col_b = st.columns(2)
-
-with col_a:
-    st.markdown("""
-    **1. Konsep Biaya (Cost):**
-    *   $TC = FC + VC$
-    *   $AC = TC / Q$
-    *   $MC = \Delta TC / \Delta Q$
-    """)
-
-with col_b:
-    st.markdown("""
-    **2. Pendapatan & Laba:**
-    *   $TR = P \times Q$
-    *   $MR = \Delta TR / \Delta Q$ (Dalam Pasar Persaingan Sempurna, $MR = P$)
-    *   $\pi (Profit) = TR - TC$
-    """)
+st.subheader("📚 Rangkuman Rumus")
+c1, c2 = st.columns(2)
+with c1:
+    st.latex(r"TC = FC + VC \quad | \quad AC = \frac{TC}{Q}")
+with c2:
+    st.latex(r"TR = P \times Q \quad | \quad \pi = TR - TC")
